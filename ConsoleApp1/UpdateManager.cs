@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
-using System.Xml.Linq;
+using System.Reflection.Metadata.Ecma335;
 
 public class UpdateManager
 {
@@ -17,8 +17,8 @@ public class UpdateManager
 	readonly string REPO_OWNER = "LunaticShiN3";
 	readonly string REPO_NAME = "Luna-Project64";
 
-	readonly string[] REPLACEABLE_FILE_NAMES = ["dgVoodoo for Jabo.zip", "parasettings.ini", "Project64.exe"];
-	readonly string[] REPLACEABLE_FOLDER_NAMES = ["Lang", "Logs", "MemPaks", "Plugin"];
+	readonly string[] REPLACEABLE_FILE_NAMES = ["dgVoodoo for Jabo.zip", "parasettings.ini", "Project64.exe", "Project64.rdb"];
+	readonly string[] REPLACEABLE_FOLDER_NAMES = [Path.Combine("Config", "Cheats"), Path.Combine("Config", "Enhancements"), "Lang", "Plugin"];
 
 	public UpdateManager(string versionString)
 	{
@@ -33,17 +33,33 @@ public class UpdateManager
 	private Task<IReadOnlyList<Release>> GetReleases() { return _releases; }
 	private Task<IReadOnlyList<ReleaseAsset>> GetReleaseAssets() { return _releaseAssets; }
 	private string getExtractPath() { return extractPath; }
+	private string getVersionString() {  return versionString; }
 
-	public void UpdateEmulator()
+	public bool UpdateEmulator()
 	{
-		extractPath = NormalizePathName(extractPath);
+		if(_releases.Result[0].TagName != getVersionString())
+		{
+			extractPath = NormalizePathName(extractPath);
 
-		KillEmulatorProcess();
-		DeleteEmulator();
-		DownloadMostRecentVersion();
-		ExtractZipFile();
-		DeleteZipFile();
-		StartUpEmulator();
+			//try
+			{
+				KillEmulatorProcess();
+				DeleteEmulator();
+				DownloadMostRecentVersion();
+				ExtractZipFile();
+				DeleteZipFile();
+				StartUpEmulator();
+				return true;
+
+			}
+			//catch (Exception e)
+			{
+				Console.WriteLine("Could Not Update");
+				//Console.WriteLine(e.Message);
+                return false;
+			}
+		}
+		return false;
 	}
 
 	private void KillEmulatorProcess()
@@ -89,18 +105,43 @@ public class UpdateManager
 
 	private void ExtractZipFile()
 	{
-		using(ZipArchive archive = ZipFile.OpenRead(GetReleaseAssets().Result[0].Name))
+		using (ZipArchive archive = ZipFile.OpenRead(GetReleaseAssets().Result[0].Name))
 		{
+
 			foreach (ZipArchiveEntry entry in archive.Entries)
 			{
-				string destinationPath = getExtractPath();
 
-				if (Array.Exists(REPLACEABLE_FILE_NAMES, element => element == entry.Name))
+				foreach (var item in REPLACEABLE_FILE_NAMES)
 				{
-					entry.ExtractToFile(Path.Combine(destinationPath, entry.Name));
+					if(entry.FullName.Contains(item))
+					{
+						string destinationPath = Path.GetFullPath(Path.Combine(getExtractPath(), entry.Name));
+
+						entry.ExtractToFile(destinationPath);
+					}
+				}
+
+				foreach (var item in REPLACEABLE_FOLDER_NAMES)
+				{
+					string destinationPath = Path.GetFullPath(Path.Combine(getExtractPath(), item));
+
+					if (!Directory.Exists(destinationPath))
+					{
+						Directory.CreateDirectory(destinationPath);
+					}
+
+					if (entry.FullName.Contains(item) && !entry.FullName.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal))
+					{
+						string[] names = entry.FullName.Split('/');
+						string name = names[names.Length - 2];
+						destinationPath = Path.GetFullPath(Path.Combine(getExtractPath(), name));
+
+						//Throws Error???
+						entry.ExtractToFile(@destinationPath);
+					}
 				}
 			}
-		}			
+        }
 	}
 
 	private void DeleteZipFile()
@@ -112,6 +153,4 @@ public class UpdateManager
 	{
 		Process.Start(getExtractPath() + $"{EMULATOR}.exe");
 	}
-
-
 }
