@@ -41,7 +41,7 @@ public class UpdateManager
 		{
 			extractPath = NormalizePathName(extractPath);
 
-			//try
+			try
 			{
 				KillEmulatorProcess();
 				DeleteEmulator();
@@ -52,10 +52,10 @@ public class UpdateManager
 				return true;
 
 			}
-			//catch (Exception e)
+			catch (Exception e)
 			{
 				Console.WriteLine("Could Not Update");
-				//Console.WriteLine(e.Message);
+				Console.WriteLine(e.Message);
                 return false;
 			}
 		}
