@@ -89,11 +89,18 @@ public class UpdateManager
 
 	private void ExtractZipFile()
 	{
-		
-		string destinationPath = getExtractPath();
-		ZipFile.ExtractToDirectory(GetReleaseAssets().Result[0].Name, destinationPath, true);
-			
-		
+		using(ZipArchive archive = ZipFile.OpenRead(GetReleaseAssets().Result[0].Name))
+		{
+			foreach (ZipArchiveEntry entry in archive.Entries)
+			{
+				string destinationPath = getExtractPath();
+
+				if (Array.Exists(REPLACEABLE_FILE_NAMES, element => element == entry.Name))
+				{
+					entry.ExtractToFile(Path.Combine(destinationPath, entry.Name));
+				}
+			}
+		}			
 	}
 
 	private void DeleteZipFile()
